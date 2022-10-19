@@ -63,8 +63,9 @@ router.post('/users/login', (req, res) => {
                     if(err) return res.status(500).json({message: err});
                     if(status) {
                         const jsonToken = jwt.sign({ result: results }, key, { expiresIn: "1h"} );
-                        // console.log(jsonToken);
                         return res.status(200).json({message: 'Login Successful', token: jsonToken});
+                        
+                        
                     }else {
                         return res.status(401).json({message: "password does not match"});
                     }
@@ -108,18 +109,17 @@ router.get('/users/:id', checkToken, (req, res) => {
 });
 
 // update user
-router.put('/users/:id', checkToken, (req, res) => {
+router.put('/users/:id', (req, res) => {
     let id = req.params.id;
     let first_name = req.body.first_name;
     let last_name = req.body.last_name;
     let email_id = req.body.email_id;
     let contact_number = req.body.contact_number;
-    let pwd = req.body.pwd;
 
-    let sql = `UPDATE user_table SET first_name = "${first_name}", last_name = "${last_name}", contact_number = "${contact_number}", email_id = "${email_id}", user_pwd = "${pwd}" WHERE id = "${id}" AND is_admin = 0`;
+    let sql = `UPDATE user_table SET first_name = "${first_name}", last_name = "${last_name}", contact_number = "${contact_number}", email_id = "${email_id}"  WHERE id = "${id}" AND is_admin = 0`;
     connection.query(sql, (err, results) => {
         if(err) return res.status(400).json({message: err});
-        if(results.length > 0) {
+        if(results.affectedRows) {
             let sql = `SELECT id, first_name, last_name, contact_number, email_id FROM user_table WHERE id = "${id}"`;
             connection.query(sql, (err, results) => {
                 if (err) return res.status(400).json({message: err});
@@ -359,23 +359,35 @@ router.delete('/resbook/:id', (req, res) => {
 router.get('/resbook/:id', (req, res) => {
     let id = req.params.id;
 
-    let sql = `SELECT * FROM resource_occupation_table WHERE id = "${id}"`;
+    let sql = `SELECT o.id, o.reserve_date, o.resource_id, o.user_id,
+                r.name,
+                u.first_name, u.last_name, u.contact_number, u.email_id
+                FROM resource_occupation_table o
+                INNER JOIN resource_table r
+                    on o.resource_id = r.id
+                INNER JOIN user_table u
+                    on o.user_id = u.id
+                WHERE o.id = "${id}"`;
     connection.query(sql, (err, results) => {
         if(err) return res.status(400).json({message: err});
-        let val = JSON.stringify(results[0].user_id);
-        let booking_details = results[0]; 
         if(results.length > 0) {
-            let sql = `SELECT first_name,last_name,contact_number,email_id FROM user_table WHERE id = "${val}"`;
-            connection.query(sql, (err, data) => {
-                if(err) return res.status(400).json({message: err});
-                let user_details = data[0];
-                const combinedData = {
-                    booking_details,
-                    user_details
-                  };
-                
-                return res.status(200).json({"response": combinedData});
-            });
+            return res.status(200).json({response: {
+                booking_details: {
+                    booking_id: results[0].id,
+                    booking_date: results[0].reserve_date,
+                    resource_id: results[0].resource_id,
+                    user_id: results[0].user_id
+                },
+                resource_details: {
+                    resource_name: results[0].name
+                },
+                user_details: {
+                    first_name: results[0].first_name,
+                    last_name: results[0].last_name,
+                    contact_number: results[0].contact_number,
+                    email_id: results[0].email_id
+                }
+            }});
         }else {
             return res.status(404).json({message: "This resource either not present or it is not booked yet."});
         }
