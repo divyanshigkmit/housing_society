@@ -1,4 +1,4 @@
-const { json } = require('body-parser');
+// const json = require('body-parser');
 const express = require('express');
 const router = express.Router();
 const connection = require('../config/db');
@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const { checkToken } = require('../auth/token-validation');
 
 // Register new user
-router.post('/users', checkToken, (req, res) => {
+router.post('/users', (req, res) => {
     let first_name = req.body.first_name;
     let last_name = req.body.last_name;
     let email_id = req.body.email_id;
@@ -49,12 +49,13 @@ router.post('/users', checkToken, (req, res) => {
 });
 
 // login 
+
 router.post('/users/login', (req, res) => {
     let email_id = req.body.email_id;
     let pwd = req.body.pwd;
     const key = process.env.key;
     if(email_id && pwd) {
-        let sql = `SELECT * FROM user_table WHERE email_id = "${email_id}"`;
+        let sql = `SELECT email_id, user_pwd FROM user_table WHERE email_id = "${email_id}"`;
         connection.query(sql, (err, results) => {
             if (err) return res.status(400).json({message: err});
             if (results.length > 0) {
@@ -63,8 +64,13 @@ router.post('/users/login', (req, res) => {
                     if(err) return res.status(500).json({message: err});
                     if(status) {
                         const jsonToken = jwt.sign({ result: results }, key, { expiresIn: "1h"} );
-                        return res.status(200).json({message: 'Login Successful', token: jsonToken});
-                        
+                        let currTime = (Date.now() + (1*60*60*1000));
+                        let q = `UPDATE user_table SET token = "${jsonToken}", token_expiration =  "${currTime}" WHERE email_id = "${email_id}"`;
+                        connection.query(q, (err, result) => {
+                            if (err) return res.status(400).json({message: err});
+
+                            return res.status(200).json({message: 'Login Successful', token: jsonToken});
+                        });
                         
                     }else {
                         return res.status(401).json({message: "password does not match"});
@@ -80,6 +86,38 @@ router.post('/users/login', (req, res) => {
         return res.status(400).json({message: 'Please enter Email and Password!'});
     }
 });
+
+// router.post('/users/login', (req, res) => {
+//     let email_id = req.body.email_id;
+//     let pwd = req.body.pwd;
+//     const key = process.env.key;
+//     if(email_id && pwd) {
+//         let sql = `SELECT * FROM user_table WHERE email_id = "${email_id}"`;
+//         connection.query(sql, (err, results) => {
+//             if (err) return res.status(400).json({message: err});
+//             if (results.length > 0) {
+//                 // console.log(results[0].user_pwd);
+//                 bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
+//                     if(err) return res.status(500).json({message: err});
+//                     if(status) {
+//                         const jsonToken = jwt.sign({ result: results }, key, { expiresIn: "1h"} );
+//                         return res.status(200).json({message: 'Login Successful', token: jsonToken});
+                        
+                        
+//                     }else {
+//                         return res.status(401).json({message: "password does not match"});
+//                     }
+//                 });
+                
+                
+//             }else {
+//                 return res.status(401).json({message: 'Email does not exist'});
+//             }			
+//         });
+//     }else {
+//         return res.status(400).json({message: 'Please enter Email and Password!'});
+//     }
+// });
 
 // get all user list
 router.get('/users', checkToken, (req, res) => {
@@ -135,7 +173,7 @@ router.put('/users/:id', (req, res) => {
 });
 
 // delete user
-router.delete('/users/:id', checkToken, (req, res) => {
+router.delete('/users/:id', (req, res) => {
     let id = req.params.id;
     let sql = `SELECT id, first_name, last_name, contact_number, email_id FROM user_table WHERE id = "${id}"`;
     connection.query(sql, (err, result) => {
@@ -179,6 +217,27 @@ router.get('/resources/:id', (req, res) => {
           return res.status(404).json({message: "User with this Id not exist."});
         }
     });
+});
+
+//get resource by status
+router.get('/resources/get/:status', (req, res) => {
+    let status = req.params.status;
+    let val;
+    if(status == 'active') {
+        val = 1;
+    }else {
+        val = 0;
+    }
+    let sql = `SELECT id, name, status FROM resource_table WHERE status = "${val}"`;
+    connection.query(sql, (err, results) => {
+        if (err) return res.status(400).json({message: err});
+        if(results.length > 0) {
+            return res.status(200).json({"response": results});
+        }else {
+          return res.status(404).json({message: `resource under "${status}" state is not available`});
+        }
+    });
+
 });
 
 
