@@ -14,7 +14,7 @@ module.exports = {
             if(token) {
                 var payload =  JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
                 let currTime = (Date.now());
-                let sql = `SELECT * from user_table WHERE email_id = "${payload.result[0].email_id}" AND token = "${token}" AND token_expiration >= "${currTime}" AND is_admin = 1`;
+                let sql = `SELECT * from users_table WHERE email_id = "${payload.result[0].email_id}" AND token = "${token}" AND token_expiration >= "${currTime}" AND is_admin = 1`;
                 connection.query(sql, (err, results) => {
                     
                     if (err) return res.status(400).json({message: err});
