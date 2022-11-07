@@ -1,4 +1,6 @@
+
 const mysql = require("mysql2");
+
 
 
 const connection = mysql.createPool({
@@ -7,6 +9,7 @@ const connection = mysql.createPool({
     database : process.env.database,
     user     : process.env.username,
     password : process.env.password,
+
 });
 
 connection.getConnection((err) => {

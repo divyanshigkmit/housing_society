@@ -7,7 +7,7 @@ const connection = require('../config/db');
 const { checkToken } = require('../auth/token-validation');
 
 // Register new user
-router.post('/users', checkToken, (req, res) => {
+router.post('/users', (req, res) => {
     let first_name = req.body.first_name;
     let last_name = req.body.last_name;
     let email_id = req.body.email_id;
@@ -22,12 +22,12 @@ router.post('/users', checkToken, (req, res) => {
 
     let q = `SELECT * FROM users_table WHERE email_id = "${email_id}" OR contact_number = "${contact_number}"`;
 
-    connection.query(q, (err, data) => {
+    connection.query(q, async (err, data) => {
         if(err) return res.status(400).json({message: err});
         if(data.length > 0) {
             return res.status(409).send({message: "User with this email/contact number already exist."});
         }else {
-            bcrypt.hash(pwd, 11, function(err, hash) {
+            await bcrypt.hash(pwd, 11, function(err, hash) {
                 if (err) {
                     return res.status(500).send({msg: err});
                 }
@@ -50,17 +50,16 @@ router.post('/users', checkToken, (req, res) => {
 });
 
 // login 
-router.post('/users/login', (req, res) => {
+router.post('/login', (req, res) => {
     let email_id = req.body.email_id;
     let pwd = req.body.pwd;
     const key = process.env.key;
     if(email_id && pwd) {
         let sql = `SELECT id, email_id, user_pwd FROM users_table WHERE email_id = "${email_id}"`;
-        connection.query(sql, (err, results) => {
+        connection.query(sql, async (err, results) => {
             if (err) return res.status(400).json({message: err});
             if (results.length > 0) {
-                // console.log(results[0].user_pwd);
-                bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
+                await bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
                     if(err) return res.status(500).json({message: err});
                     if(status) {
                         const jsonToken = jwt.sign({ result: results }, key, { expiresIn: "1h"} );
@@ -69,7 +68,7 @@ router.post('/users/login', (req, res) => {
                         connection.query(q, (err, result) => {
                             if (err) return res.status(400).json({message: err});
 
-                            return res.status(200).json({message: 'Login Successful', token: jsonToken, userId: results[0].id});
+                            return res.status(200).json({message: 'Login Successful', token: jsonToken});
                         });
                         
                     }else {
@@ -148,7 +147,7 @@ router.delete('/users/:id', checkToken, (req, res) => {
     connection.query(sql, (err, result) => {
         if(err) return res.status(400).json({message: err});
         if(result.length > 0) {
-            let sql = `delete from user_table where id = "${id}"`;
+            let sql = `delete from users_table where id = "${id}"`;
             connection.query(sql, (err, results) => {
                 if(err) return res.status(400).json({message: err});
                 return res.status(202).json({
@@ -189,7 +188,7 @@ router.get('/resources/:id', checkToken, (req, res) => {
 });
 
 //get resource by status
-router.get('/resources/get/:status', checkToken, (req, res) => {
+router.get('/resources?status={status}', checkToken, (req, res) => {
     let status = req.params.status;
     let val;
     if(status == 'active') {
@@ -215,13 +214,13 @@ router.post('/resources', checkToken, (req, res) => {
     let name = req.body.name;
     let status = req.body.status;
 
-    let q = `SELECT * FROM resource_table WHERE name = "${name}"`;
+    let q = `SELECT * FROM resources_table WHERE name = "${name}"`;
     connection.query(q, (err, data) => {
         if(err) return res.status(400).json({message: err});
         if(data.length > 0) {
             return res.status(409).json({message: "This resource alredy exist."});
         }else {
-            let sql = `INSERT INTO resource_table (name, status) VALUES ("${name}", "${status}")`;
+            let sql = `INSERT INTO resources_table (name, status) VALUES ("${name}", "${status}")`;
             connection.query(sql, (err, results) => {
                 if (err) return res.status(400).json({message: err});
                 return res.status(201).json({
@@ -240,7 +239,7 @@ router.put('/resources/:id', checkToken, (req, res) => {
     let name = req.body.name;
     let status = req.body.status;
 
-    let sql = `UPDATE resource_table SET name = "${name}", status = "${status}" WHERE id = "${id}"`;
+    let sql = `UPDATE resources_table SET name = "${name}", status = "${status}" WHERE id = "${id}"`;
     connection.query(sql, (err, result) => {
         if(err) return res.status(400).json({message: err});
         if(result.length > 0) {
@@ -251,7 +250,7 @@ router.put('/resources/:id', checkToken, (req, res) => {
             });
             
         }else {
-            return res.status(404).json({message: 'user not found'});
+            return res.status(404).json({message: 'resource not found'});
         }
         
         
@@ -262,11 +261,11 @@ router.put('/resources/:id', checkToken, (req, res) => {
 // delete resource
 router.delete('/resources/:id', checkToken, (req, res) => {
     let id = req.params.id;
-    let sql = `SELECT id, name, status FROM resource_table WHERE id = "${id}"`;
+    let sql = `SELECT id, name, status FROM resources_table WHERE id = "${id}"`;
     connection.query(sql, (err, result) => {
         if(err) return res.status(400).json({message: err});
         if(result.length > 0) {
-            let sql = `DELETE FROM resource_table WHERE id = "${id}"`;
+            let sql = `DELETE FROM resources_table WHERE id = "${id}"`;
             connection.query(sql, (err, results) => {
                 if(err) return res.status(400).json({message: err});
                 return res.status(202).json({
@@ -281,8 +280,8 @@ router.delete('/resources/:id', checkToken, (req, res) => {
 });
 
 // get all booking
-router.get('/resbook', checkToken, (req, res) => {
-    let sql = `SELECT * FROM resource_occupation_table`;
+router.get('/bookings', checkToken, (req, res) => {
+    let sql = `SELECT * FROM bookings_table`;
     connection.query(sql, (err, results) => {
       if(err) return res.status(400).json({message: err});
       if(results.length > 0) {
@@ -297,22 +296,22 @@ router.get('/resbook', checkToken, (req, res) => {
 });
 
 // book resource
-router.post('/resbook', checkToken, (req, res) => {
+router.post('/bookings', checkToken, (req, res) => {
     let resource_id = req.body.resource_id;
     let reserve_date = req.body.reserve_date;
     let user_id = req.body.user_id;
 
-    let sql = `SELECT * FROM resource_occupation_table WHERE resource_id = "${resource_id}" AND reserve_date = "${reserve_date}"`;
+    let sql = `SELECT * FROM bookings_table WHERE resource_id = "${resource_id}" AND reserve_date = "${reserve_date}"`;
     connection.query(sql, (err, results) => {
         if(err) return res.status(400).json({message: err});
         if(results.length > 0) {
             return res.status(409).json({message: "This resource for same date is already booked."});
         }else {
-            let sql = `SELECT id FROM resource_table WHERE id = "${resource_id}" AND status = 1`;
+            let sql = `SELECT id FROM resources_table WHERE id = "${resource_id}" AND status = 1`;
             connection.query(sql, (err, resu) => {
                 if (err) return res.status(400).json({message: err});
                 if(resu.length > 0) {
-                    let sql = `INSERT INTO resource_occupation_table (resource_id, reserve_date, user_id) VALUES ("${resource_id}", "${reserve_date}", "${user_id}")`;
+                    let sql = `INSERT INTO bookings_table (resource_id, reserve_date, user_id) VALUES ("${resource_id}", "${reserve_date}", "${user_id}")`;
                     connection.query(sql, (err, results) => {
                         if (err) return res.status(400).json({message: err});
                         
@@ -333,13 +332,13 @@ router.post('/resbook', checkToken, (req, res) => {
 });
 
 // update booking
-router.put('/resbook/:id', checkToken, (req, res) => {
+router.put('/bookings/:id', checkToken, (req, res) => {
     let id = req.params.id;
     let resource_id = req.body.resource_id;
     let reserve_date = req.body.reserve_date;
     let user_id = req.body.user_id;
 
-    let sql = `UPDATE resource_occupation_table SET resource_id = "${resource_id}", reserve_date = "${reserve_date}", user_id = "${user_id}" WHERE id = "${id}"`;
+    let sql = `UPDATE bookings_table SET resource_id = "${resource_id}", reserve_date = "${reserve_date}", user_id = "${user_id}" WHERE id = "${id}"`;
     connection.query(sql, (err, results) => {
         if(err) return res.status(400).json({message: err});
         if(results.length > 0) {
@@ -357,13 +356,13 @@ router.put('/resbook/:id', checkToken, (req, res) => {
 
 
 // delete booking
-router.delete('/resbook/:id', checkToken, (req, res) => {
+router.delete('/bookings/:id', checkToken, (req, res) => {
     let id = req.params.id;
-    let sql = `SELECT * FROM resource_occupation_table WHERE id = "${id}"`;
+    let sql = `SELECT * FROM bookings_table WHERE id = "${id}"`;
     connection.query(sql, (err, results) => {
         if(err) return res.status(400).json({message: err});
         if(results.length > 0) {
-            let sql = `DELETE FROM resource_occupation_table WHERE id = "${id}"`;
+            let sql = `DELETE FROM bookings_table WHERE id = "${id}"`;
             connection.query(sql, (err, result) => {
                 if(err) return res.status(400).json({message: err});
                 return res.status(202).json({
@@ -378,16 +377,16 @@ router.delete('/resbook/:id', checkToken, (req, res) => {
 });
 
 // get booking and user details by id
-router.get('/resbook/:id', checkToken, (req, res) => {
+router.get('/bookings/:id', checkToken, (req, res) => {
     let id = req.params.id;
 
     let sql = `SELECT o.id, o.reserve_date, o.resource_id, o.user_id,
                 r.name,
                 u.first_name, u.last_name, u.contact_number, u.email_id
-                FROM resource_occupation_table o
-                INNER JOIN resource_table r
+                FROM bookings_table o
+                INNER JOIN resources_table r
                     on o.resource_id = r.id
-                INNER JOIN user_table u
+                INNER JOIN users_table u
                     on o.user_id = u.id
                 WHERE o.id = "${id}"`;
     connection.query(sql, (err, results) => {
@@ -414,11 +413,6 @@ router.get('/resbook/:id', checkToken, (req, res) => {
             return res.status(404).json({message: "This resource either not present or it is not booked yet."});
         }
     });
-});
-
-// check for valid token
-router.get('/tokenCheck', checkToken, (req, res) => {
-    return res.status(200).json({status: 200, message: "valid user"});
 });
 
 
