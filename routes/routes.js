@@ -7,7 +7,7 @@ const connection = require('../config/db');
 const { checkToken } = require('../auth/token-validation');
 
 // Register new user
-router.post('/users', checkToken, (req, res) => {
+router.post('/users', (req, res) => {
     let first_name = req.body.first_name;
     let last_name = req.body.last_name;
     let email_id = req.body.email_id;
@@ -22,12 +22,12 @@ router.post('/users', checkToken, (req, res) => {
 
     let q = `SELECT * FROM users_table WHERE email_id = "${email_id}" OR contact_number = "${contact_number}"`;
 
-    connection.query(q, (err, data) => {
+    connection.query(q, async (err, data) => {
         if(err) return res.status(400).json({message: err});
         if(data.length > 0) {
             return res.status(409).send({message: "User with this email/contact number already exist."});
         }else {
-            bcrypt.hash(pwd, 11, function(err, hash) {
+            await bcrypt.hash(pwd, 11, function(err, hash) {
                 if (err) {
                     return res.status(500).send({msg: err});
                 }
@@ -56,10 +56,10 @@ router.post('/login', (req, res) => {
     const key = process.env.key;
     if(email_id && pwd) {
         let sql = `SELECT id, email_id, user_pwd FROM users_table WHERE email_id = "${email_id}"`;
-        connection.query(sql, (err, results) => {
+        connection.query(sql, async (err, results) => {
             if (err) return res.status(400).json({message: err});
             if (results.length > 0) {
-                bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
+                await bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
                     if(err) return res.status(500).json({message: err});
                     if(status) {
                         const jsonToken = jwt.sign({ result: results }, key, { expiresIn: "1h"} );
@@ -147,7 +147,7 @@ router.delete('/users/:id', checkToken, (req, res) => {
     connection.query(sql, (err, result) => {
         if(err) return res.status(400).json({message: err});
         if(result.length > 0) {
-            let sql = `delete from user_table where id = "${id}"`;
+            let sql = `delete from users_table where id = "${id}"`;
             connection.query(sql, (err, results) => {
                 if(err) return res.status(400).json({message: err});
                 return res.status(202).json({
