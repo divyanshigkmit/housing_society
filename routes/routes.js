@@ -59,7 +59,6 @@ router.post('/login', (req, res) => {
         connection.query(sql, (err, results) => {
             if (err) return res.status(400).json({message: err});
             if (results.length > 0) {
-                // console.log(results[0].user_pwd);
                 bcrypt.compare(pwd, results[0].user_pwd).then((status, err) => {
                     if(err) return res.status(500).json({message: err});
                     if(status) {
@@ -69,7 +68,7 @@ router.post('/login', (req, res) => {
                         connection.query(q, (err, result) => {
                             if (err) return res.status(400).json({message: err});
 
-                            return res.status(200).json({message: 'Login Successful', token: jsonToken, userId: results[0].id});
+                            return res.status(200).json({message: 'Login Successful', token: jsonToken});
                         });
                         
                     }else {
@@ -414,11 +413,6 @@ router.get('/bookings/:id', checkToken, (req, res) => {
             return res.status(404).json({message: "This resource either not present or it is not booked yet."});
         }
     });
-});
-
-// check for valid token
-router.get('/tokenCheck', checkToken, (req, res) => {
-    return res.status(200).json({status: 200, message: "valid user"});
 });
 
 

@@ -6,7 +6,6 @@ const connection = require('../config/db');
 module.exports = {
     checkToken: (req, res, next) => {
         let token = req.get("authorization");
-        let userId = req.get("userId");
         if(token !== 'null') {
             var payload =  JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
             let currTime = (Date.now());
@@ -14,9 +13,7 @@ module.exports = {
             connection.query(sql, (err, results) => {  
                 if (err) return res.status(400).json({message: err});
                 if(results.length > 0) {
-                    if((userId && (results[0].id == userId)) || (!userId)) {
-                        next();
-                    }
+                    next();
                 }else {
                     return res.status(498).json({message: "Invalid token"});
                 } 
